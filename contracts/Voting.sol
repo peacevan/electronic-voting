@@ -1,31 +1,20 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 contract Voting {
     struct Candidate {
-        uint id;
         string name;
         uint voteCount;
     }
 
-    struct Voter {
-        bool hasVoted;
-        uint votedCandidateId;
-    }
-
+    mapping(address => bool) public hasVoted;
+    mapping(string => Candidate) public candidates;
+    string[] public candidateNames;
     address public admin;
-    mapping(address => Voter) public voters;
-    mapping(uint => Candidate) public candidates;
-    uint public candidatesCount;
-    uint public totalVotes;
 
-    event CandidateRegistered(uint indexed candidateId, string name);
-    event VoteCast(address indexed voter, uint candidateId, string candidateName);
- 
+    event Voted(address indexed voter, string candidateName);
 
- 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin can perform this operation.");
+        require(msg.sender == admin, "Apenas o administrador pode executar esta operação");
         _;
     }
 
@@ -33,20 +22,43 @@ contract Voting {
         admin = msg.sender;
     }
 
-    function registerCandidate(string memory _name) public onlyAdmin {
-        candidatesCount++;
-        candidates[candidatesCount] = Candidate(candidatesCount, _name, 0);
-        emit CandidateRegistered(candidatesCount, _name);
+    function registerCandidate(string memory _name) external onlyAdmin {
+        require(bytes(_name).length > 0, "O nome do candidato não pode estar vazio");
+        require(bytes(candidates[_name].name).length == 0, "Este candidato já está registrado");
+
+        candidates[_name] = Candidate(_name, 0);
+        candidateNames.push(_name);
     }
 
+    function vote(string memory _candidateName) external {
+        require(bytes(_candidateName).length > 0, "O nome do candidato não pode estar vazio");
+        require(bytes(candidates[_candidateName].name).length > 0, "Este candidato não está registrado");
+        require(!hasVoted[msg.sender], "Você já votou");
 
+        candidates[_candidateName].voteCount++;
+        hasVoted[msg.sender] = true;
 
-
-    function getCandidateInfo(uint _candidateId) public view returns (uint, string memory, uint) {
-        return (candidates[_candidateId].id, candidates[_candidateId].name, candidates[_candidateId].voteCount);
+        emit Voted(msg.sender, _candidateName);
     }
 
-    function getTotalVotes() public view returns (uint) {
-        return totalVotes;
+    function getVoteCount(string memory _candidateName) external view returns (uint) {
+        require(bytes(_candidateName).length > 0, "O nome do candidato não pode estar vazio");
+        require(bytes(candidates[_candidateName].name).length > 0, "Este candidato não está registrado");
+
+        return candidates[_candidateName].voteCount;
+    }
+
+    function declareWinner() external view returns (string memory) {
+        uint maxVotes = 0;
+        string memory winnerName;
+
+        for (uint i = 0; i < candidateNames.length; i++) {
+            if (candidates[candidateNames[i]].voteCount > maxVotes) {
+                maxVotes = candidates[candidateNames[i]].voteCount;
+                winnerName = candidateNames[i];
+            }
+        }
+
+        return winnerName;
     }
 }
