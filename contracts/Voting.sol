@@ -6,12 +6,22 @@ contract Voting {
         uint voteCount;
     }
 
+    struct AuditLog {
+        address actor;
+        string action;
+        string details;
+        uint timestamp;
+    }
+
     mapping(address => bool) public hasVoted;
     mapping(string => Candidate) public candidates;
     string[] public candidateNames;
     address public admin;
+    AuditLog[] public auditLogs;
 
     event Voted(address indexed voter, string candidateName);
+    event CandidateRegistered(string name);
+    event AuditLogAdded(address indexed actor, string action, string details, uint timestamp);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Apenas o administrador pode executar esta operação");
@@ -28,6 +38,9 @@ contract Voting {
 
         candidates[_name] = Candidate(_name, 0);
         candidateNames.push(_name);
+
+        emit CandidateRegistered(_name);
+        _addAuditLog(msg.sender, "Registrar Candidato", _name);
     }
 
     function vote(string memory _candidateName) external {
@@ -39,6 +52,7 @@ contract Voting {
         hasVoted[msg.sender] = true;
 
         emit Voted(msg.sender, _candidateName);
+        _addAuditLog(msg.sender, "Votar", _candidateName);
     }
 
     function getVoteCount(string memory _candidateName) external view returns (uint) {
@@ -60,5 +74,21 @@ contract Voting {
         }
 
         return winnerName;
+    }
+
+    function getAuditLogsCount() external view returns (uint) {
+        return auditLogs.length;
+    }
+
+    function getAuditLog(uint index) external view returns (address, string memory, string memory, uint) {
+        require(index < auditLogs.length, "Índice fora do intervalo");
+
+        AuditLog memory log = auditLogs[index];
+        return (log.actor, log.action, log.details, log.timestamp);
+    }
+
+    function _addAuditLog(address _actor, string memory _action, string memory _details) internal {
+        auditLogs.push(AuditLog(_actor, _action, _details, block.timestamp));
+        emit AuditLogAdded(_actor, _action, _details, block.timestamp);
     }
 }
